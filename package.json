@@ -2,8 +2,7 @@
   "name": "asciiwire",
   "private": true,
   "scripts": {
-    "test": "turbo test",
-    "build": "turbo build",
-    "dev": "turbo dev"
+    "test": "pnpm -r run test",
+    "build": "pnpm -r run build"
   }
 }

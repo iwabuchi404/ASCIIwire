@@ -1,7 +1,21 @@
 {
   "name": "@asciiwire/cli",
   "version": "0.1.0",
+  "description": "CLI tool for ASCIIwire - convert DSL to ASCII wireframes",
   "type": "module",
+  "main": "dist/index.js",
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/iwabuchi404/ASCIIwire.git",
+    "directory": "packages/cli"
+  },
+  "license": "MIT",
   "bin": {
     "asciiwire": "./dist/index.js"
   },

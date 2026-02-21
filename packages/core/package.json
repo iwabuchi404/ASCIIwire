@@ -1,8 +1,21 @@
 {
   "name": "@asciiwire/core",
   "version": "0.1.0",
+  "description": "Core logic for ASCIIwire - DSL parsing and ASCII rendering",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/iwabuchi404/ASCIIwire.git",
+    "directory": "packages/core"
+  },
+  "license": "MIT",
   "scripts": {
     "build": "tsc",
     "test": "vitest"
