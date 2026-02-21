@@ -1,0 +1,20 @@
+{
+  "name": "@asciiwire/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "asciiwire": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@asciiwire/core": "workspace:*",
+    "commander": "^11.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "@types/node": "^20.0.0"
+  }
+}
