@@ -22,12 +22,23 @@ export function parseDSL(markdown: string): DSLNode[] {
       const isBranch = prefix && branchPrefixes.includes(prefix);
 
       const type = isLayout ? 'layout' : isComponent ? 'component' : isBranch ? 'branch' : 'text';
-      const kind = (isLayout || isComponent ? value : prefix || value) as NodeKind;
+      let kind = (isLayout || isComponent ? value : prefix || value) as NodeKind;
+      const params: Record<string, string> = {};
+
+      // Handle parameters (e.g., split 30/70)
+      if (isLayout || isComponent) {
+        const parts = value.split(/\s+/);
+        if (parts.length > 1) {
+          kind = parts[0] as NodeKind;
+          params['value'] = parts.slice(1).join(' ');
+        }
+      }
 
       const node: DSLNode = {
         level,
         type,
         kind,
+        params: Object.keys(params).length > 0 ? params : undefined,
         content: isBranch || isLayout || isComponent ? '' : value, // Keep value for text nodes
         children: []
       };

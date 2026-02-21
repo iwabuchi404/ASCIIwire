@@ -4,6 +4,7 @@ export interface DSLNode {
   level: number;
   type: 'layout' | 'component' | 'branch' | 'text';
   kind: NodeKind;
+  params?: Record<string, string>;
   content: string;
   children: DSLNode[];
 }
