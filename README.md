@@ -38,6 +38,19 @@ ASCIIwire uses Markdown headings to define structure and layout.
 [ Open ]
 ```
 
+### Rendering Output
+
+```text
+======================================================================
+|            [ Logo ] News Portal [ Settings ] [ Logout ]            |
+======================================================================
++------+-------+--------+         |+---------------------------------+
+| date | title | status |         || - title                         |
++------+-------+--------+         || - summary                       |
++------+-------+--------+         || [ Open ]                        |
+                                  |+---------------------------------+
+```
+
 ## Getting Started
 
 ### Prerequisites

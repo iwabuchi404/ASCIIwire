@@ -3,6 +3,7 @@ import { Command } from 'commander';
 import fs from 'fs';
 import path from 'path';
 import { parseDSL, renderASCII } from '@asciiwire/core';
+import { AI_GUIDE } from './ai-guide.js';
 
 const program = new Command();
 
@@ -12,9 +13,20 @@ program
   .version('0.1.0');
 
 program
-  .argument('<file>', 'DSL file (Markdown) to render')
+  .command('llm')
+  .description('Output guide for AI agents to generate DSL')
+  .action(() => {
+    console.log(AI_GUIDE);
+  });
+
+program
+  .argument('[file]', 'DSL file (Markdown) to render')
   .option('-w, --width <number>', 'Output width', '80')
   .action((file, options) => {
+    if (!file) {
+      program.help();
+      return;
+    }
     try {
       const fullPath = path.resolve(file);
       if (!fs.existsSync(fullPath)) {
