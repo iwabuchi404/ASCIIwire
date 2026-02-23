@@ -1,6 +1,6 @@
 {
   "name": "@asciiwire/core",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Core logic for ASCIIwire - DSL parsing and ASCII rendering",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

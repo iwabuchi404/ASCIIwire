@@ -1,6 +1,6 @@
 {
   "name": "@asciiwire/cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "CLI tool for ASCIIwire - convert DSL to ASCII wireframes",
   "type": "module",
   "main": "dist/index.js",
