@@ -56,7 +56,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     const updateStatusBar = (editor: vscode.TextEditor | undefined) => {
         try {
-            if (editor && (editor.document.languageId === 'wire-md' || editor.document.fileName.endsWith('.wire.md'))) {
+            if (editor && (editor.document.languageId === 'wire' || editor.document.fileName.endsWith('.wire'))) {
                 statusBarItem.show();
             } else {
                 statusBarItem.hide();
@@ -68,7 +68,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     vscode.window.onDidChangeActiveTextEditor(updateStatusBar, null, context.subscriptions);
     vscode.workspace.onDidChangeTextDocument(e => {
-        if (e.document.fileName.endsWith('.wire.md')) {
+        if (e.document.fileName.endsWith('.wire')) {
             try {
                 PreviewPanel.update(e.document);
             } catch (err) {

@@ -110,7 +110,7 @@ export class PreviewPanel {
                 if (line.text.match(heightRegex)) {
                     newText = line.text.replace(heightRegex, `height=${newHeight}`);
                 } else {
-                    newText = line.text.replace(/^(#+\s+\S+:\s+\S+)\s*$/, `$1 height=${newHeight}`);
+                    newText = line.text.replace(/^(@\S+\s+\S+.*)$/, `$1 height=${newHeight}`);
                 }
                 editBuilder.replace(line.range, newText);
                 outputChannel.appendLine(`Resize: updated height=${newHeight} (was ${currentHeight}, dh=${dh})`);
@@ -128,7 +128,7 @@ export class PreviewPanel {
                     if (ratioLine.text.match(ratioRegex)) {
                         newText = ratioLine.text.replace(ratioRegex, `${newRatio}/${100 - newRatio}`);
                     } else {
-                        newText = ratioLine.text.replace(/\bsplit\b/, `split ${newRatio}/${100 - newRatio}`);
+                        newText = ratioLine.text.replace(/^(@layout\s+split)$/, `$1 ratio=${newRatio}/${100 - newRatio}`);
                     }
                     editBuilder.replace(ratioLine.range, newText);
                 } else {
@@ -139,7 +139,7 @@ export class PreviewPanel {
                     if (line.text.match(regex)) {
                         newText = line.text.replace(regex, `width=${currentWidth + dw}`);
                     } else {
-                        newText = line.text.replace(/^(#+\s+\S+:\s+\S+)\s*$/, `$1 width=${currentWidth + dw}`);
+                        newText = line.text.replace(/^(@\S+\s+\S+.*)$/, `$1 width=${currentWidth + dw}`);
                     }
                     editBuilder.replace(line.range, newText);
                 }

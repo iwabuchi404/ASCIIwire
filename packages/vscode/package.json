@@ -11,7 +11,7 @@
     "Other"
   ],
   "activationEvents": [
-    "onLanguage:wire-md",
+    "onLanguage:wire",
     "onCommand:asciiwire.openPreview",
     "onCommand:asciiwire.copyASCII",
     "onCommand:asciiwire.copyDSL",
@@ -21,13 +21,13 @@
   "contributes": {
     "languages": [
       {
-        "id": "wire-md",
+        "id": "wire",
         "aliases": [
           "ASCIIwire",
-          "wire-md"
+          "wire"
         ],
         "extensions": [
-          ".wire.md"
+          ".wire"
         ],
         "configuration": "./language-configuration.json"
       }
@@ -58,12 +58,12 @@
     "menus": {
       "editor/title": [
         {
-          "when": "resourceFilename =~ /\\.wire\\.md$/",
+          "when": "resourceFilename =~ /\\.wire$/",
           "command": "asciiwire.openPreview",
           "group": "navigation"
         },
         {
-          "when": "resourceFilename =~ /\\.wire\\.md$/",
+          "when": "resourceFilename =~ /\\.wire$/",
           "submenu": "asciiwire.copySubmenu",
           "group": "navigation"
         }

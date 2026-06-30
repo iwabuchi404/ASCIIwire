@@ -131,7 +131,7 @@ function renderLayout(node: DSLNode, width: number): RenderedNode {
     return renderChildren(node.children, width);
   } else if (node.kind === 'split') {
     let ratio = 0.5;
-    const ratioParam = node.params?.ratio || node.params?.value;
+    const ratioParam = node.params?.ratio;
     if (ratioParam) {
       if (ratioParam.includes('/')) {
         const [left, right] = ratioParam.split('/').map((n: string) => parseInt(n, 10));

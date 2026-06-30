@@ -2,15 +2,15 @@
 
 ## コンセプト
 
-`.wire.md`ファイルを開いたとき、テキスト編集とアスキーアートプレビューを同一ウィンドウで提供するVSCode拡張。AIが出力したDSLを人間がさっと確認・修正してAIに返せる、軽量な編集環境を目指す。
+`.wire`ファイルを開いたとき、テキスト編集とアスキーアートプレビューを同一ウィンドウで提供するVSCode拡張。AIが出力したDSLを人間がさっと確認・修正してAIに返せる、軽量な編集環境を目指す。
 
 ---
 
 ## ファイル形式
 
-- 拡張子: `.wire.md`
-- 内容: ASCIIwire DSL（マークダウンベース）
-- `.wire.md`を開いた瞬間に拡張が自動起動する
+- 拡張子: `.wire`
+- 内容: ASCIIwire DSL v2（`@` プレフィックス + インデント階層）
+- `.wire`を開いた瞬間に拡張が自動起動する
 
 ---
 
@@ -24,8 +24,8 @@
 |   DSLテキストエディタ      |  アスキーアートプレビュー |
 |   （左ペイン）             |  （右ペイン）           |
 |                         |                        |
-|   # layout: stack       |  +-----------------+   |
-|   ### component: header |  | Header          |   |
+|   @layout stack         |  +-----------------+   |
+|     @component header   |  | Header          |   |
 |   ...                   |  +-----------------+   |
 |                         |  | Table  | Panel  |   |
 |                         |  +-----------------+   |
@@ -52,7 +52,7 @@
 
 ## コピー機能
 
-エディタタイトルバーの`[コピー ▾]`ボタンからメニューを展開して選択する。`.wire.md`を開いたときのみ表示される。
+エディタタイトルバーの`[コピー ▾]`ボタンからメニューを展開して選択する。`.wire`を開いたときのみ表示される。
 
 | メニュー項目 | クリップボードの内容 |
 |------------|-----------------|
@@ -68,8 +68,8 @@
 +------------------+
 
 <!-- asciiwire-dsl
-# layout: stack
-### component: header
+@layout stack
+  @component header
 -->
 ```
 
@@ -138,14 +138,14 @@ asciiwire-vscode/
 
 ### ファイル紐付け
 
-`package.json`の`contributes`で`.wire.md`をトリガーとして登録する。
+`package.json`の`contributes`で`.wire`をトリガーとして登録する。
 
 ```json
-"activationEvents": ["onLanguage:markdown"],
+"activationEvents": ["onLanguage:wire"],
 "contributes": {
   "languages": [{
-    "id": "wire-md",
-    "extensions": [".wire.md"]
+    "id": "wire",
+    "extensions": [".wire"]
   }]
 }
 ```
@@ -156,7 +156,7 @@ asciiwire-vscode/
 
 ### Phase 1（最小版・宣伝可能な状態）
 
-- `.wire.md`を開いたら自動でプレビューが起動
+- `.wire`を開いたら自動でプレビューが起動
 - DSL編集→リアルタイムプレビュー更新
 - コピーメニュー（3種類）
 - テキストモードのみ
@@ -169,7 +169,7 @@ asciiwire-vscode/
 
 ### Phase 3
 
-- コンポーネントのリサイズ
+- コンポーネントのリサイズ（`height=N` / `width=N` パラメータ更新）
 - ラベル編集
 - `asciiwire open`コマンドとのCLI連携
 
@@ -177,5 +177,6 @@ asciiwire-vscode/
 
 ## 未解決事項
 
-- 全角文字の幅計算（`@asciiwire/core`側の問題だが表示品質に影響する、Phase 1完了後に対応）
-- マウスモードでの操作とDSL同期の詳細設計（Phase 2着手時に別途設計）
+- 全角文字の幅計算（`@asciiwire/core`側の問題だが表示品質に影響する）→ 実装済み
+- マウスモードでの操作とDSL同期の詳細設計（Phase 2着手時に別途設計）→ 実装済み（`height=N`/`width=N`パラメータ更新方式）
+- DSL v2移行スクリプト（`.wire.md` → `.wire` 変換）

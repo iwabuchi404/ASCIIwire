@@ -20,7 +20,7 @@ program
   });
 
 program
-  .argument('[file]', 'DSL file (Markdown) to render')
+  .argument('[file]', 'DSL file to render')
   .option('-w, --width <number>', 'Output width', '80')
   .action((file, options) => {
     if (!file) {

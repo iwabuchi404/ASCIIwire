@@ -1,82 +1,85 @@
 import { DSLNode, NodeKind } from './types.js';
 
-export function parseDSL(markdown: string): DSLNode[] {
-  const lines = markdown.split(/\r?\n/);
+export function parseDSL(source: string): DSLNode[] {
+  const lines = source.split(/\r?\n/);
   const root: DSLNode[] = [];
-  const stack: DSLNode[] = [];
-
-  const headingRegex = /^(#+)\s+(layout:|component:|left:|right:|top:|bottom:)?\s*(.*)$/;
+  const stack: { node: DSLNode; indent: number }[] = [];
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const match = line.match(headingRegex);
 
-    if (match) {
-      if (stack.length > 0) {
-        // Close range for current node if next heading found
-        stack[stack.length - 1].sourceRange!.endLine = i; // 0-indexed, exclusive end
-      }
-      const level = match[1].length;
-      const prefix = match[2]?.replace(':', '').trim();
-      const value = match[3].trim();
+    // Skip empty lines and comments
+    const trimmed = line.trim();
+    if (trimmed === '' || trimmed.startsWith('#')) continue;
 
-      const branchPrefixes = ['left', 'right', 'top', 'bottom'];
-      const isLayout = prefix === 'layout';
-      const isComponent = prefix === 'component';
-      const isBranch = prefix && branchPrefixes.includes(prefix);
+    // Calculate indentation level (spaces only, 2 spaces per level)
+    const indentMatch = line.match(/^( *)/);
+    const indentSpaces = indentMatch ? indentMatch[1].length : 0;
+    const indentLevel = Math.floor(indentSpaces / 2);
 
-      const type = isLayout ? 'layout' : isComponent ? 'component' : isBranch ? 'branch' : 'text';
-      let kind = (isLayout || isComponent ? value : prefix || value) as NodeKind;
+    // Check if this is an element line (@ prefix)
+    if (trimmed.startsWith('@')) {
+      // Parse: @type kind key=value key=value...
+      const elementContent = trimmed.slice(1).trim();
+      const parts = elementContent.split(/\s+/);
+      const typeStr = parts[0];
+
+      let type: 'layout' | 'component' | 'branch' | 'text';
+      if (typeStr === 'layout') type = 'layout';
+      else if (typeStr === 'component') type = 'component';
+      else if (typeStr === 'branch') type = 'branch';
+      else type = 'text';
+
+      const kind = (parts[1] || typeStr) as NodeKind;
       const params: Record<string, string> = {};
 
-      // Handle parameters (e.g., split ratio=60 or split 1/1)
-      if (isLayout || isComponent) {
-        const parts = value.split(/\s+/);
-        kind = parts[0] as NodeKind;
-        for (let j = 1; j < parts.length; j++) {
-            const part = parts[j];
-            if (part.includes('=')) {
-                const [k, v] = part.split('=');
-                params[k] = v;
-            } else {
-                params['value'] = part;
-            }
+      for (let j = 2; j < parts.length; j++) {
+        const part = parts[j];
+        if (part.includes('=')) {
+          const [k, v] = part.split('=');
+          params[k] = v;
+        } else {
+          params['value'] = part;
         }
       }
 
       const node: DSLNode = {
         id: `node-${i}-${Math.random().toString(36).substr(2, 5)}`,
-        level,
+        level: indentLevel,
         type,
         kind,
         params: Object.keys(params).length > 0 ? params : undefined,
         content: '',
         children: [],
-        sourceRange: { startLine: i, endLine: i } // 0-indexed
+        sourceRange: { startLine: i, endLine: i }
       };
 
-      // Find parent in stack
-      while (stack.length > 0 && stack[stack.length - 1].level >= level) {
+      // Pop stack until we find the parent
+      while (stack.length > 0 && stack[stack.length - 1].indent >= indentLevel) {
         stack.pop();
       }
 
       if (stack.length === 0) {
         root.push(node);
       } else {
-        stack[stack.length - 1].children.push(node);
+        stack[stack.length - 1].node.children.push(node);
       }
-      stack.push(node);
-    } else if (stack.length > 0) {
-      // Add content to the current node (skip empty lines)
-      const lineTrim = line.trim();
-      if (lineTrim === '') continue;
-      const currentNode = stack[stack.length - 1];
+
+      stack.push({ node, indent: indentLevel });
+    } else {
+      // Content line - belongs to the current top of stack
+      if (stack.length === 0) continue;
+
+      // Unescape @@ to @
+      const contentLine = trimmed.replace(/^@@/, '@');
+
+      const currentNode = stack[stack.length - 1].node;
       if (currentNode.content === '') {
-          currentNode.content = line;
+        currentNode.content = contentLine;
       } else {
-          currentNode.content += '\n' + line;
+        currentNode.content += '\n' + contentLine;
       }
-      currentNode.sourceRange!.endLine = i; // 0-indexed, inclusive end
+      currentNode.sourceRange!.endLine = i;
     }
   }
 

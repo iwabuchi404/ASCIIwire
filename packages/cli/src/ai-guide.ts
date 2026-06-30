@@ -3,52 +3,68 @@ export const AI_GUIDE = `
 
 ASCIIwire is a DSL for defining UI wireframes that can be rendered into ASCII art. Use this guide to generate valid DSL.
 
-## General Rules
+## Syntax
 
-1. **Hierarchy**: Use Markdown heading levels (#, ##, ###) for nesting.
-2. **Type/Kind Prefix**: Headings must start with one of these:
-   - \`layout: [kind]\`: Container (\`stack\`, \`split\`)
-   - \`component: [kind]\`: UI Element (\`header\`, \`table\`, \`nav\`, \`panel\`)
-   - \`left:\`, \`right:\`: Branches for \`split\` layout.
-3. **Content**: Text after a heading (until next heading) is the content/data of that node.
+- **Element lines**: Start with \`@\` followed by type, kind, and optional parameters
+- **Content lines**: Indented lines that don't start with \`@\`
+- **Comments**: Lines starting with \`#\`
+- **Indentation**: 2 spaces per nesting level
+- **Escaping**: Use \`@@\` to include a literal \`@\` in content
+
+## Element Types
+
+| Syntax | Description |
+|---|---|
+| \`@layout <kind> [params]\` | Container: \`stack\`, \`split\` |
+| \`@component <kind> [params]\` | UI Element: \`header\`, \`table\`, \`panel\`, \`nav\`, \`list\`, \`footer\` |
+| \`@branch <kind>\` | Split branch: \`left\`, \`right\`, \`top\`, \`bottom\` |
+
+## Parameters (key=value only)
+
+| Parameter | Applies to | Default | Example |
+|---|---|---|---|
+| \`ratio=A/B\` | split | 50/50 | \`@layout split ratio=30/70\` |
+| \`width=N\` | component | 80 | \`@component panel width=60\` |
+| \`height=N\` | panel, default-box | content lines | \`@component panel height=10\` |
 
 ## Layouts
 
-- **stack**: Vertically stacks children.
-- **split [ratio]**: Horizontally splits into \`left:\` and \`right:\`.
-  - Example: \`# layout: split 30/70\` sets a 30:70 width ratio. Default is 50/50.
+- **stack**: Vertically stacks children
+- **split**: Horizontally or vertically splits into branches
+  - Horizontal: \`@branch left\` / \`@branch right\`
+  - Vertical: \`@branch top\` / \`@branch bottom\`
 
 ## Components
 
-- **header**: Centered text with border.
-- **table**: Markdown table content.
-- **panel**: Box with solid border (\`+--+\`).
-- **nav**: Navigation elements center-aligned.
-- **default**: Box with dotted border (\`+..+\`) for any other components.
+- **header**: Centered text with \`=\` border
+- **table**: Markdown table syntax in content
+- **panel**: Box with solid border (\`+--+\`)
+- **nav**: Centered navigation text
+- **list**: Plain text lines
+- **footer**: Centered text with padding
+- **default**: Dotted border (\`+..+\`) for unknown kinds
 
 ## Example DSL
 
-\`\`\`markdown
-# layout: stack
+\`\`\`
+@layout stack
+  @component header
+    My Application
 
-## component: header
-My Application
+  @layout split ratio=30/70
+    @branch left
+      @component panel height=6
+        Navigation
+        - Home
+        - Settings
+    @branch right
+      @component panel
+        Main Content Area
+        Welcome to the dashboard!
 
-## layout: split 30/70
-### left:
-#### component: panel
-Navigation
-- Home
-- Settings
-
-### right:
-#### component: panel
-Main Content Area
-Welcome to the dashboard!
-
-## component: table
-| ID | User | Role |
-|----|------|------|
-| 1  | Admin| Super|
+  @component table
+    | ID | User  | Role   |
+    |----|-------|--------|
+    | 1  | Alice | Admin  |
 \`\`\`
 `.trim();
