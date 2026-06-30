@@ -1,0 +1,34 @@
+:root {
+    --bg-color: var(--vscode-editor-background);
+    --text-color: var(--vscode-editor-foreground);
+    --font-family: var(--vscode-editor-font-family);
+    --font-size: var(--vscode-editor-font-size);
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    font-family: var(--font-family);
+    font-size: var(--font-size);
+    margin: 0;
+    padding: 20px;
+}
+
+pre {
+    font-family: var(--font-family);
+    line-height: 1.2;
+    white-space: pre;
+    word-wrap: normal;
+    overflow-x: auto;
+}
+
+#app {
+    display: flex;
+    flex-direction: column;
+}
+
+.error {
+    color: var(--vscode-errorForeground);
+    font-weight: bold;
+    margin-top: 10px;
+}

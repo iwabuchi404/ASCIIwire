@@ -1,0 +1,23 @@
+# layout: stack
+
+### component: header
+🚀 ASCIIwire VS Code Extension Test
+
+### component: panel
+This is a sample `.wire.md` file to verify the real-time preview.
+Edit this text and watch the preview update on the right!
+
+### component: table
+| OS | Status |
+|----|--------|
+| Windows | Testing |
+| macOS | Planned |
+| Linux | Planned |
+
+# layout: split 50/50
+## left:
+### component: panel
+Left Side Content
+## right:
+### component: panel
+Right Side Content

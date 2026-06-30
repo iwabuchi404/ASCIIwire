@@ -12,6 +12,10 @@ export function parseDSL(markdown: string): DSLNode[] {
     const match = line.match(headingRegex);
 
     if (match) {
+      if (stack.length > 0) {
+        // Close range for current node if next heading found
+        stack[stack.length - 1].sourceRange!.endLine = i; // 0-indexed, exclusive end
+      }
       const level = match[1].length;
       const prefix = match[2]?.replace(':', '').trim();
       const value = match[3].trim();
@@ -25,22 +29,30 @@ export function parseDSL(markdown: string): DSLNode[] {
       let kind = (isLayout || isComponent ? value : prefix || value) as NodeKind;
       const params: Record<string, string> = {};
 
-      // Handle parameters (e.g., split 30/70)
+      // Handle parameters (e.g., split ratio=60 or split 1/1)
       if (isLayout || isComponent) {
         const parts = value.split(/\s+/);
-        if (parts.length > 1) {
-          kind = parts[0] as NodeKind;
-          params['value'] = parts.slice(1).join(' ');
+        kind = parts[0] as NodeKind;
+        for (let j = 1; j < parts.length; j++) {
+            const part = parts[j];
+            if (part.includes('=')) {
+                const [k, v] = part.split('=');
+                params[k] = v;
+            } else {
+                params['value'] = part;
+            }
         }
       }
 
       const node: DSLNode = {
+        id: `node-${i}-${Math.random().toString(36).substr(2, 5)}`,
         level,
         type,
         kind,
         params: Object.keys(params).length > 0 ? params : undefined,
-        content: isBranch || isLayout || isComponent ? '' : value, // Keep value for text nodes
-        children: []
+        content: '',
+        children: [],
+        sourceRange: { startLine: i, endLine: i } // 0-indexed
       };
 
       // Find parent in stack
@@ -55,26 +67,18 @@ export function parseDSL(markdown: string): DSLNode[] {
       }
       stack.push(node);
     } else if (stack.length > 0) {
-      // Add content to the current node
+      // Add content to the current node (skip empty lines)
+      const lineTrim = line.trim();
+      if (lineTrim === '') continue;
       const currentNode = stack[stack.length - 1];
-      if (currentNode.content) {
-        currentNode.content += '\n' + line;
+      if (currentNode.content === '') {
+          currentNode.content = line;
       } else {
-        currentNode.content = line;
+          currentNode.content += '\n' + line;
       }
+      currentNode.sourceRange!.endLine = i; // 0-indexed, inclusive end
     }
   }
-
-  // Trim content for all nodes
-  const trimContent = (nodes: DSLNode[]) => {
-    for (const node of nodes) {
-      node.content = node.content.trim();
-      trimContent(node.children);
-    }
-  };
-  trimContent(root);
-
-  trimContent(root);
 
   return root;
 }

@@ -14,7 +14,7 @@ Hello
     expect(ast[0].kind).toBe('stack');
     expect(ast[0].children).toHaveLength(1);
     expect(ast[0].children[0].kind).toBe('header');
-    expect(ast[0].children[0].content).toBe('Hello');
+    expect(ast[0].children[0].content.trim()).toBe('Hello');
   });
 
   it('should parse split layout with left/right branches', () => {
@@ -37,9 +37,9 @@ describe('ASCII Renderer', () => {
   it('should render boxed components', () => {
     const dsl = `### component: test\nContent`;
     const ast = parseDSL(dsl);
-    const ascii = renderASCII(ast, { width: 20 });
-    expect(ascii).toContain('+------------------+');
-    expect(ascii).toContain('| Content          |');
+    const result = renderASCII(ast, { width: 20 });
+    expect(result.ascii).toContain('+..................+');
+    expect(result.ascii).toContain('| Content          |');
   });
 
   it('should render split layout', () => {
@@ -51,8 +51,8 @@ describe('ASCII Renderer', () => {
 ### component: right
 `;
     const ast = parseDSL(dsl);
-    const ascii = renderASCII(ast, { width: 40 });
-    const lines = ascii.split('\n');
+    const result = renderASCII(ast, { width: 40 });
+    const lines = result.ascii.split('\n');
     expect(lines[0]).toMatch(/\|/); // Should contain separator
   });
 });

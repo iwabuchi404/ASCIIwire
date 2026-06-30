@@ -1,27 +1,58 @@
-import { DSLNode } from './types.js';
+import { DSLNode, RenderResult } from './types.js';
 
 export interface RenderOptions {
   width: number;
 }
 
-export function renderASCII(nodes: DSLNode[], options: RenderOptions = { width: 80 }): string {
-  return nodes.map(node => renderNode(node, options.width).join('\n')).join('\n');
+interface RenderedNode {
+  lines: string[];
+  ids: string[][];
 }
 
-function renderNode(node: DSLNode, width: number): string[] {
-  if (node.type === 'text') {
-    return [visualSlice(node.content, 0, width)];
+export function renderASCII(nodes: DSLNode[], options: RenderOptions = { width: 80 }): RenderResult {
+  const renderedNodes = nodes.map(node => renderNode(node, options.width));
+  const lines: string[] = [];
+  const grid: string[][] = [];
+
+  for (const rendered of renderedNodes) {
+    lines.push(...rendered.lines);
+    grid.push(...rendered.ids);
   }
+
+  return {
+    ascii: lines.join('\n'),
+    grid
+  };
+}
+
+function renderNode(node: DSLNode, width: number): RenderedNode {
+  // Use width from params if available
+  if (node.params?.width) {
+    const w = parseInt(node.params.width, 10);
+    if (!isNaN(w)) width = w;
+  }
+
+  if (node.type === 'text') {
+    const text = visualSlice(node.content, 0, width);
+    return { lines: [text], ids: [makeIdLine(text, node.id)] };
+  }
+  
+  let result: RenderedNode;
   switch (node.type) {
     case 'layout':
-      return renderLayout(node, width);
+      result = renderLayout(node, width);
+      break;
     case 'component':
-      return renderComponent(node, width);
+      result = renderComponent(node, width);
+      break;
     case 'branch':
-      return renderChildren(node.children, width);
+      result = renderChildren(node.children, width);
+      break;
     default:
-      return [visualSlice(node.content, 0, width)];
+      const text = visualSlice(node.content, 0, width);
+      result = { lines: [text], ids: [makeIdLine(text, node.id)] };
   }
+  return result;
 }
 
 // --- Visual Width Helpers ---
@@ -82,55 +113,94 @@ function visualSlice(str: string, start: number, visualWidth: number): string {
   return result;
 }
 
-function renderLayout(node: DSLNode, width: number): string[] {
+/**
+ * Creates an ids array for a line of text, where each character contributes
+ * its visual width in id entries (full-width = 2, half-width = 1).
+ */
+function makeIdLine(text: string, nodeId: string): string[] {
+  const ids: string[] = [];
+  for (const char of text) {
+    const cw = getVisualWidth(char);
+    for (let j = 0; j < cw; j++) ids.push(nodeId);
+  }
+  return ids;
+}
+
+function renderLayout(node: DSLNode, width: number): RenderedNode {
   if (node.kind === 'stack') {
     return renderChildren(node.children, width);
   } else if (node.kind === 'split') {
     let ratio = 0.5;
-    const ratioParam = node.params?.value;
-    if (ratioParam && ratioParam.includes('/')) {
-      const [left, right] = ratioParam.split('/').map(n => parseInt(n, 10));
-      if (!isNaN(left) && !isNaN(right)) {
-        ratio = left / (left + right);
+    const ratioParam = node.params?.ratio || node.params?.value;
+    if (ratioParam) {
+      if (ratioParam.includes('/')) {
+        const [left, right] = ratioParam.split('/').map((n: string) => parseInt(n, 10));
+        if (!isNaN(left) && !isNaN(right)) {
+          ratio = left / (left + right);
+        }
+      } else if (!isNaN(parseFloat(ratioParam))) {
+        ratio = parseFloat(ratioParam) / 100;
       }
     }
 
-    const leftWidth = Math.floor((width - 1) * ratio);
-    const rightWidth = width - 1 - leftWidth;
-
     const leftBranch = node.children.find(c => c.kind === 'left');
     const rightBranch = node.children.find(c => c.kind === 'right');
+    const topBranch = node.children.find(c => c.kind === 'top');
+    const bottomBranch = node.children.find(c => c.kind === 'bottom');
 
-    const leftLines = leftBranch ? renderChildren(leftBranch.children, leftWidth) : [];
-    const rightLines = rightBranch ? renderChildren(rightBranch.children, rightWidth) : [];
+    // Horizontal split (left/right)
+    if (leftBranch || rightBranch) {
+      const leftWidth = Math.floor((width - 1) * ratio);
+      const rightWidth = width - 1 - leftWidth;
 
-    const maxLines = Math.max(leftLines.length, rightLines.length);
-    const result: string[] = [];
+      const leftResult = leftBranch ? renderChildren(leftBranch.children, leftWidth) : { lines: [], ids: [] };
+      const rightResult = rightBranch ? renderChildren(rightBranch.children, rightWidth) : { lines: [], ids: [] };
 
-    for (let i = 0; i < maxLines; i++) {
-      const left = visualPadEnd(leftLines[i] || '', leftWidth);
-      const right = visualPadEnd(rightLines[i] || '', rightWidth);
-      result.push(left + '|' + right);
+      const maxLines = Math.max(leftResult.lines.length, rightResult.lines.length);
+      const lines: string[] = [];
+      const ids: string[][] = [];
+
+      for (let i = 0; i < maxLines; i++) {
+          const leftLine = visualPadEnd(leftResult.lines[i] || '', leftWidth);
+          const rightLine = visualPadEnd(rightResult.lines[i] || '', rightWidth);
+          
+          const leftIds = (leftResult.ids[i] || []).concat(Array(leftWidth - (leftResult.ids[i]?.length || 0)).fill(leftBranch?.id || node.id));
+          const rightIds = (rightResult.ids[i] || []).concat(Array(rightWidth - (rightResult.ids[i]?.length || 0)).fill(rightBranch?.id || node.id));
+          
+          lines.push(leftLine + '|' + rightLine);
+          ids.push([...leftIds, node.id, ...rightIds]);
+      }
+      return { lines, ids };
     }
-    return result;
+
+    // Vertical split (top/bottom)
+    if (topBranch || bottomBranch) {
+      const topResult = topBranch ? renderChildren(topBranch.children, width) : { lines: [], ids: [] };
+      const bottomResult = bottomBranch ? renderChildren(bottomBranch.children, width) : { lines: [], ids: [] };
+
+      const separator = '-'.repeat(width);
+      const lines = [...topResult.lines, separator, ...bottomResult.lines];
+      const sepIds = Array(width).fill(node.id);
+      const ids = [...topResult.ids, sepIds, ...bottomResult.ids];
+
+      return { lines, ids };
+    }
   }
-  return [];
+  return { lines: [], ids: [] };
 }
 
-function renderChildren(children: DSLNode[], width: number): string[] {
-  let result: string[] = [];
+function renderChildren(children: DSLNode[], width: number): RenderedNode {
+  const lines: string[] = [];
+  const ids: string[][] = [];
   for (const child of children) {
-    const childLines = renderNode(child, width);
-    if (result.length > 0) {
-      // Add a separator or just append?
-      // For now, just append.
-    }
-    result = result.concat(childLines);
+    const rendered = renderNode(child, width);
+    lines.push(...rendered.lines);
+    ids.push(...rendered.ids);
   }
-  return result;
+  return { lines, ids };
 }
 
-function renderComponent(node: DSLNode, width: number): string[] {
+function renderComponent(node: DSLNode, width: number): RenderedNode {
   switch (node.kind) {
     case 'header':
       return renderHeader(node, width);
@@ -140,35 +210,47 @@ function renderComponent(node: DSLNode, width: number): string[] {
       return renderPanel(node, width);
     case 'nav':
       return renderNav(node, width);
+    case 'list':
+      return renderList(node, width);
+    case 'footer':
+      return renderFooter(node, width);
     default:
       return renderDefaultBox(node, width);
   }
 }
 
-function renderNav(node: DSLNode, width: number): string[] {
+function renderNav(node: DSLNode, width: number): RenderedNode {
   const content = node.content.trim();
   const contentWidth = getVisualWidth(content);
-  // Nav is often smaller, we don't necessarily box it or we use a different border
   const padding = Math.max(0, Math.floor((width - 4 - contentWidth) / 2));
-  const line = ' '.repeat(padding) + content + ' '.repeat(width - 4 - contentWidth - padding);
-  return [' '.repeat(width), '  ' + line + '  ', ' '.repeat(width)];
+  
+  const textLine = ' '.repeat(padding) + content + ' '.repeat(Math.max(0, width - 4 - contentWidth - padding));
+  const line = '  ' + textLine + '  ';
+  
+  const lines = [' '.repeat(width), line, ' '.repeat(width)];
+  const ids = Array(3).fill(null).map(() => Array(width).fill(node.id));
+  
+  return { lines, ids };
 }
 
-function renderHeader(node: DSLNode, width: number): string[] {
+function renderHeader(node: DSLNode, width: number): RenderedNode {
   const content = node.content.trim();
   const contentWidth = getVisualWidth(content);
   const border = '='.repeat(width);
-  // Center content
   const padding = Math.max(0, Math.floor((width - 4 - contentWidth) / 2));
   const line = '| ' + ' '.repeat(padding) + content + ' '.repeat(width - 4 - contentWidth - padding) + ' |';
-  return [border, line, border];
+  
+  const lines = [border, line, border];
+  const ids = Array(3).fill(null).map(() => Array(width).fill(node.id));
+  
+  return { lines, ids };
 }
 
-function renderTable(node: DSLNode, width: number): string[] {
-  const lines = node.content.split('\n').filter(l => l.trim().includes('|'));
-  if (lines.length === 0) return renderDefaultBox(node, width);
+function renderTable(node: DSLNode, width: number): RenderedNode {
+  const linesContent = node.content.split('\n').filter(l => l.trim().includes('|'));
+  if (linesContent.length === 0) return renderDefaultBox(node, width);
 
-  const rows = lines.map(line => 
+  const rows = linesContent.map(line => 
     line.split('|').map(cell => cell.trim()).filter((_, i, a) => !(i === 0 && !a[i]) && !(i === a.length - 1 && !a[i]))
   ).filter(row => !row.every(cell => cell.match(/^[ :-]+$/)));
 
@@ -179,40 +261,87 @@ function renderTable(node: DSLNode, width: number): string[] {
     });
   });
 
-  // Simple border
   const makeSeparator = () => '+' + colWidths.map(w => '-'.repeat(w + 2)).join('+') + '+';
   const sep = makeSeparator();
   
+  if (getVisualWidth(sep) > width) return renderDefaultBox(node, width);
+
   const formattedRows = rows.map(row => 
     '| ' + row.map((cell, i) => visualPadEnd(cell, colWidths[i])).join(' | ') + ' |'
   );
 
-  const result = [sep, formattedRows[0], sep, ...formattedRows.slice(1), sep];
-  // If too wide, fallback to default for now or truncate
-  if (getVisualWidth(sep) > width) return renderDefaultBox(node, width);
-  return result;
+  const lines = [sep, formattedRows[0], sep, ...formattedRows.slice(1), sep];
+  const ids = lines.map(() => Array(getVisualWidth(sep)).fill(node.id));
+
+  return { lines, ids };
 }
 
-function renderPanel(node: DSLNode, width: number): string[] {
-  const lines = node.content.split('\n');
+function renderPanel(node: DSLNode, width: number): RenderedNode {
+  const linesContent = node.content.split('\n').filter(l => l.trim() !== '');
   const border = '+' + '-'.repeat(width - 2) + '+';
-  const result = [border];
-  for (const line of lines) {
-    const content = visualSlice(line, 0, width - 4);
-    result.push('| ' + visualPadEnd(content, width - 4) + ' |');
+  const lines = [border];
+  for (const lineContent of linesContent) {
+    const content = visualSlice(lineContent, 0, width - 4);
+    lines.push('| ' + visualPadEnd(content, width - 4) + ' |');
   }
-  result.push(border);
-  return result;
+  // Pad to height if specified
+  const targetHeight = parseInt(node.params?.height || '0', 10);
+  if (targetHeight > linesContent.length) {
+    for (let i = linesContent.length; i < targetHeight; i++) {
+      lines.push('| ' + visualPadEnd('', width - 4) + ' |');
+    }
+  }
+  lines.push(border);
+  
+  const ids = lines.map(() => Array(width).fill(node.id));
+  return { lines, ids };
 }
 
-function renderDefaultBox(node: DSLNode, width: number): string[] {
-  const lines = node.content.split('\n');
-  const border = '+' + '.'.repeat(width - 2) + '+';
-  const result = [border];
-  for (const line of lines) {
-    const content = visualSlice(line, 0, width - 4);
-    result.push('| ' + visualPadEnd(content, width - 4) + ' |');
+function renderList(node: DSLNode, width: number): RenderedNode {
+  const linesContent = node.content.split('\n').filter(l => l.trim() !== '');
+  const lines: string[] = [];
+  for (const lineContent of linesContent) {
+    const content = visualSlice(lineContent, 0, width);
+    lines.push(content);
   }
-  result.push(border);
-  return result;
+
+  const ids: string[][] = [];
+  for (let i = 0; i < lines.length; i++) {
+    ids.push(makeIdLine(lines[i], node.id));
+  }
+
+  return { lines, ids };
+}
+
+function renderFooter(node: DSLNode, width: number): RenderedNode {
+  const content = node.content.trim();
+  const contentWidth = getVisualWidth(content);
+  const padding = Math.max(0, Math.floor((width - contentWidth) / 2));
+  const line = ' '.repeat(padding) + content + ' '.repeat(Math.max(0, width - contentWidth - padding));
+
+  const lines = [' '.repeat(width), line, ' '.repeat(width)];
+  const ids = Array(3).fill(null).map(() => Array(width).fill(node.id));
+
+  return { lines, ids };
+}
+
+function renderDefaultBox(node: DSLNode, width: number): RenderedNode {
+  const linesContent = node.content.split('\n').filter(l => l.trim() !== '');
+  const border = '+' + '.'.repeat(width - 2) + '+';
+  const lines = [border];
+  for (const lineContent of linesContent) {
+    const content = visualSlice(lineContent, 0, width - 4);
+    lines.push('| ' + visualPadEnd(content, width - 4) + ' |');
+  }
+  // Pad to height if specified
+  const targetHeight = parseInt(node.params?.height || '0', 10);
+  if (targetHeight > linesContent.length) {
+    for (let i = linesContent.length; i < targetHeight; i++) {
+      lines.push('| ' + visualPadEnd('', width - 4) + ' |');
+    }
+  }
+  lines.push(border);
+  
+  const ids = lines.map(() => Array(width).fill(node.id));
+  return { lines, ids };
 }

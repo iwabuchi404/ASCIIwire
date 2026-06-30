@@ -1,0 +1,6 @@
+{
+  "mode": "vscode",
+  "projectPath": ".",
+  "buildCommand": "npm run compile",
+  "port": 3000
+}

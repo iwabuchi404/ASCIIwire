@@ -1,0 +1,118 @@
+{
+  "name": "asciiwire-vscode",
+  "displayName": "ASCIIwire",
+  "description": "ASCII wireframing tool for VS Code",
+  "version": "0.1.0",
+  "publisher": "iwabuchi404",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onLanguage:wire-md",
+    "onCommand:asciiwire.openPreview",
+    "onCommand:asciiwire.copyASCII",
+    "onCommand:asciiwire.copyDSL",
+    "onCommand:asciiwire.copyBoth"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "wire-md",
+        "aliases": [
+          "ASCIIwire",
+          "wire-md"
+        ],
+        "extensions": [
+          ".wire.md"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "asciiwire.openPreview",
+        "title": "ASCIIwire: Open Preview",
+        "category": "ASCIIwire",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "asciiwire.copyASCII",
+        "title": "Copy ASCII Art",
+        "category": "ASCIIwire"
+      },
+      {
+        "command": "asciiwire.copyDSL",
+        "title": "Copy DSL",
+        "category": "ASCIIwire"
+      },
+      {
+        "command": "asciiwire.copyBoth",
+        "title": "Copy Both (ASCII + DSL)",
+        "category": "ASCIIwire"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "when": "resourceFilename =~ /\\.wire\\.md$/",
+          "command": "asciiwire.openPreview",
+          "group": "navigation"
+        },
+        {
+          "when": "resourceFilename =~ /\\.wire\\.md$/",
+          "submenu": "asciiwire.copySubmenu",
+          "group": "navigation"
+        }
+      ],
+      "asciiwire.copySubmenu": [
+        {
+          "command": "asciiwire.copyASCII",
+          "group": "1_copy"
+        },
+        {
+          "command": "asciiwire.copyDSL",
+          "group": "1_copy"
+        },
+        {
+          "command": "asciiwire.copyBoth",
+          "group": "1_copy"
+        }
+      ]
+    },
+    "submenus": [
+      {
+        "id": "asciiwire.copySubmenu",
+        "label": "Copy",
+        "icon": "$(copy)"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.75.0",
+    "@types/glob": "^8.0.0",
+    "@types/mocha": "^10.0.1",
+    "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^5.45.0",
+    "@typescript-eslint/parser": "^5.45.0",
+    "eslint": "^8.28.0",
+    "glob": "^8.0.3",
+    "mocha": "^10.1.0",
+    "typescript": "^5.3.0",
+    "@vscode/test-electron": "^2.2.0"
+  },
+  "dependencies": {
+    "@asciiwire/core": "workspace:*"
+  }
+}

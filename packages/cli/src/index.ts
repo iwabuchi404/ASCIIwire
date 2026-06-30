@@ -36,9 +36,9 @@ program
 
       const content = fs.readFileSync(fullPath, 'utf-8');
       const ast = parseDSL(content);
-      const output = renderASCII(ast, { width: parseInt(options.width, 10) });
+      const result = renderASCII(ast, { width: parseInt(options.width, 10) });
 
-      console.log(output);
+      console.log(result.ascii);
     } catch (error) {
       console.error('Error rendering DSL:', error);
       process.exit(1);
