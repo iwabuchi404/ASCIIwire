@@ -1,0 +1,44 @@
+# ASCIIwire DSL v2 Sample - Dashboard UI
+@layout stack
+  @component header
+    Dashboard
+
+  @layout split ratio=30/70
+    @branch left
+      @component nav
+        [ Home ] [ Users ] [ Settings ] [ Reports ]
+
+      @component panel height=8
+        Menu Footer
+        v1.0.0
+
+    @branch right
+      @layout stack
+        @component panel height=5
+          Welcome back, Admin
+          Last login: 2026-06-30
+
+        @layout split ratio=50/50
+          @branch left
+            @component panel height=6
+              Statistics
+              Users: 1,234
+              Active: 567
+              Revenue: $12k
+
+          @branch right
+            @component panel height=6
+              Recent Activity
+              - User login
+              - File upload
+              - Comment posted
+
+        @component table
+          | ID | User    | Role   | Status |
+          |----|---------|--------|--------|
+          | 1  | Alice   | Admin  | Active |
+          | 2  | Bob     | Editor | Idle   |
+          | 3  | Charlie | Viewer | Away   |
+
+  @component footer
+    v1.0.0 | (c) 2024 ASCIIwire

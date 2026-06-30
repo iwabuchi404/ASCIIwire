@@ -508,8 +508,10 @@ export class PreviewPanel {
 </head>
 <body>
     <div id="app" style="overflow: auto; width: 100vw; height: 100vh; position: relative;">
-        <pre id="ascii-output">${this._escapeHtml(content)}</pre>
-        <div id="overlay-container" style="position: absolute; top: 0; left: 0; pointer-events: none;"></div>
+        <div id="content-wrapper" style="position: relative; display: inline-block;">
+            <pre id="ascii-output">${this._escapeHtml(content)}</pre>
+            <div id="overlay-container" style="position: absolute; top: 0; left: 0; pointer-events: none;"></div>
+        </div>
     </div>
     <script>
         const vscode = acquireVsCodeApi();
@@ -561,10 +563,8 @@ export class PreviewPanel {
             }
 
             if (found) {
-                const outRect = output.getBoundingClientRect();
-                const appRect = document.getElementById('app').getBoundingClientRect();
-                const offsetX = outRect.left - appRect.left;
-                const offsetY = outRect.top - appRect.top;
+                const offsetX = output.offsetLeft;
+                const offsetY = output.offsetTop;
 
                 const overlay = document.createElement('div');
                 overlay.className = 'highlight-overlay';
