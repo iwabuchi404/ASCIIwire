@@ -74,6 +74,21 @@ export class PreviewPanel {
                     case 'resizeNode':
                         this._onResizeNode(message.nodeId, message.dw, message.dh);
                         return;
+                    case 'deleteNode':
+                        this._onDeleteNode(message.nodeId);
+                        return;
+                    case 'addNode':
+                        this._onAddNode(message.nodeType, message.kind, message.targetNodeId, message.position);
+                        return;
+                    case 'editNodeContent':
+                        this._onEditNodeContent(message.nodeId, message.newContent);
+                        return;
+                    case 'editNodeProperty':
+                        this._onEditNodeProperty(message.nodeId, message.property, message.value);
+                        return;
+                    case 'selectParent':
+                        this._onSelectParent(message.nodeId);
+                        return;
                 }
             },
             null,
@@ -335,10 +350,147 @@ export class PreviewPanel {
             );
             if (editor) return editor;
         }
-        // Fallback: find any visible .wire.md editor
+        // Fallback: find any visible .wire editor
         return vscode.window.visibleTextEditors.find(e =>
-            e.document.fileName.endsWith('.wire.md')
+            e.document.fileName.endsWith('.wire')
         ) || vscode.window.activeTextEditor;
+    }
+
+    private _getIndentString(node: any): string {
+        return '  '.repeat(node.level || 0);
+    }
+
+    private _onDeleteNode(nodeId: string) {
+        outputChannel.appendLine(`Deleting node: ${nodeId}`);
+        const node = this._findNodeById(this._lastNodes, nodeId);
+        if (!node || !node.sourceRange) {
+            vscode.window.showErrorMessage(`Delete failed: node not found`);
+            return;
+        }
+
+        const editor = this._getEditor();
+        if (!editor) return;
+
+        const startLine = node.sourceRange.startLine;
+        const endLine = node.sourceRange.endLine;
+        const deleteRange = new vscode.Range(
+            new vscode.Position(startLine, 0),
+            new vscode.Position(endLine + 1, 0)
+        );
+
+        editor.edit(editBuilder => {
+            editBuilder.delete(deleteRange);
+        }).then(() => {
+            this._update(editor.document);
+        });
+    }
+
+    private _onAddNode(nodeType: string, kind: string, targetNodeId: string, position: 'before' | 'after' | 'child') {
+        outputChannel.appendLine(`Adding node: ${nodeType} ${kind} near ${targetNodeId} (${position})`);
+        const editor = this._getEditor();
+        if (!editor) return;
+
+        const targetNode = this._findNodeById(this._lastNodes, targetNodeId);
+        if (!targetNode || !targetNode.sourceRange) {
+            vscode.window.showErrorMessage(`Add failed: target node not found`);
+            return;
+        }
+
+        let insertLine: number;
+        let indentLevel: number;
+
+        if (position === 'child') {
+            insertLine = targetNode.sourceRange.startLine + 1;
+            indentLevel = (targetNode.level || 0) + 1;
+        } else if (position === 'after') {
+            insertLine = targetNode.sourceRange.endLine + 1;
+            indentLevel = targetNode.level || 0;
+        } else {
+            insertLine = targetNode.sourceRange.startLine;
+            indentLevel = targetNode.level || 0;
+        }
+
+        const indent = '  '.repeat(indentLevel);
+        const contentIndent = '  '.repeat(indentLevel + 1);
+        const newLines = `${indent}@${nodeType} ${kind}\n${contentIndent}New ${kind}`;
+
+        const insertPos = new vscode.Position(insertLine, 0);
+        editor.edit(editBuilder => {
+            editBuilder.insert(insertPos, newLines + '\n');
+        }).then(() => {
+            this._update(editor.document);
+        });
+    }
+
+    private _onEditNodeContent(nodeId: string, newContent: string) {
+        outputChannel.appendLine(`Editing content for node: ${nodeId}`);
+        const node = this._findNodeById(this._lastNodes, nodeId);
+        if (!node || !node.sourceRange) {
+            vscode.window.showErrorMessage(`Edit failed: node not found`);
+            return;
+        }
+
+        const editor = this._getEditor();
+        if (!editor) return;
+
+        const startLine = node.sourceRange.startLine;
+        const endLine = node.sourceRange.endLine;
+
+        // The first line is the @element line, rest is content
+        const indent = this._getIndentString(node);
+        const contentIndent = indent + '  ';
+        const contentLines = newContent.split('\n').map((l: string) => `${contentIndent}${l}`);
+        const newBlock = contentLines.join('\n');
+
+        // Replace from after the element line to endLine
+        const contentStart = new vscode.Position(startLine + 1, 0);
+        const contentEnd = new vscode.Position(endLine + 1, 0);
+        const replaceRange = new vscode.Range(contentStart, contentEnd);
+
+        editor.edit(editBuilder => {
+            editBuilder.replace(replaceRange, newBlock + '\n');
+        }).then(() => {
+            this._update(editor.document);
+        });
+    }
+
+    private _onEditNodeProperty(nodeId: string, property: string, value: string) {
+        outputChannel.appendLine(`Editing property ${property}=${value} for node: ${nodeId}`);
+        const node = this._findNodeById(this._lastNodes, nodeId);
+        if (!node || !node.sourceRange) {
+            vscode.window.showErrorMessage(`Edit failed: node not found`);
+            return;
+        }
+
+        const editor = this._getEditor();
+        if (!editor) return;
+
+        const line = editor.document.lineAt(node.sourceRange.startLine);
+        const lineText = line.text;
+
+        if (property === 'kind') {
+            // Replace kind in the @type kind pattern
+            const newText = lineText.replace(/^(@\S+\s+)\S+/, `$1${value}`);
+            editor.edit(editBuilder => {
+                editBuilder.replace(line.range, newText);
+            }).then(() => {
+                this._update(editor.document);
+            });
+        } else {
+            // key=value parameter
+            const regex = new RegExp(`${property}=\\S+`);
+            let newText: string;
+            if (lineText.match(regex)) {
+                newText = lineText.replace(regex, `${property}=${value}`);
+            } else {
+                newText = lineText.replace(/^(@\S+\s+\S+.*)$/, `$1 ${property}=${value}`);
+            }
+            editor.edit(editBuilder => {
+                editBuilder.replace(line.range, newText);
+            }).then(() => {
+                this._update(editor.document);
+            });
+        }
     }
 
     private _findParentOfNode(nodes: any[], nodeId: string, parent: any = null): any {
@@ -350,6 +502,13 @@ export class PreviewPanel {
             }
         }
         return null;
+    }
+
+    private _onSelectParent(nodeId: string) {
+        const parent = this._findParentOfNode(this._lastNodes, nodeId);
+        if (parent && parent.id) {
+            this._panel.webview.postMessage({ command: 'parentSelected', nodeId: parent.id, kind: parent.kind, type: parent.type });
+        }
     }
 
     private _onSelectNode(nodeId: string) {
@@ -476,6 +635,34 @@ export class PreviewPanel {
             margin: 0;
             overflow: hidden;
         }
+        #toolbar {
+            display: flex;
+            gap: 4px;
+            padding: 4px 8px;
+            background: var(--vscode-editorWidget-background, #2d2d2d);
+            border-bottom: 1px solid var(--vscode-editorWidget-border, #3c3c3c);
+            font-size: 12px;
+            font-family: var(--vscode-editor-font-family);
+            z-index: 200;
+        }
+        #toolbar button {
+            background: var(--vscode-button-secondaryBackground, #3a3d41);
+            color: var(--vscode-button-secondaryForeground, #fff);
+            border: none;
+            padding: 2px 8px;
+            cursor: pointer;
+            font-size: 11px;
+            border-radius: 2px;
+        }
+        #toolbar button:hover {
+            background: var(--vscode-button-secondaryHoverBackground, #45494e);
+        }
+        #toolbar .spacer { flex: 1; }
+        #toolbar .selected-info {
+            color: var(--vscode-descriptionForeground, #888);
+            padding: 2px 8px;
+            font-size: 11px;
+        }
         #ascii-output {
             position: relative;
             cursor: crosshair;
@@ -483,15 +670,26 @@ export class PreviewPanel {
             padding: 0;
             margin: 0;
             white-space: pre;
-            display: inline-block; /* Ensure rect matches content */
+            display: inline-block;
         }
         .highlight-overlay {
             position: absolute;
-            background: rgba(0, 122, 204, 0.2);
-            border: 1px solid #007acc;
-            pointer-events: none; /* Let mouse events pass through to <pre> */
+            background: rgba(0, 122, 204, 0.1);
+            border: 1px solid rgba(0, 122, 204, 0.5);
+            pointer-events: none;
             z-index: 100;
             transition: none;
+        }
+        .selected-overlay {
+            position: absolute;
+            background: rgba(0, 122, 204, 0.25);
+            border: 2px solid #007acc;
+            pointer-events: none;
+            z-index: 90;
+            transition: none;
+        }
+        .selected-overlay .resize-handle {
+            pointer-events: auto;
         }
         .resize-handle {
             position: absolute;
@@ -502,24 +700,89 @@ export class PreviewPanel {
             background: #007acc;
             border: 1px solid #fff;
             cursor: nwse-resize;
-            pointer-events: auto; /* Override parent's none — works in Chromium */
+            pointer-events: auto;
+        }
+        #context-menu {
+            position: fixed;
+            background: var(--vscode-menu-background, #2d2d2d);
+            border: 1px solid var(--vscode-menu-border, #555);
+            box-shadow: 2px 2px 8px rgba(0,0,0,0.3);
+            z-index: 300;
+            font-size: 12px;
+            font-family: var(--vscode-editor-font-family);
+            min-width: 160px;
+            display: none;
+        }
+        #context-menu .menu-item {
+            padding: 4px 12px;
+            cursor: pointer;
+            color: var(--vscode-menu-foreground, #ccc);
+        }
+        #context-menu .menu-item:hover {
+            background: var(--vscode-menu-selectionBackground, #094771);
+        }
+        #context-menu .menu-separator {
+            border-top: 1px solid var(--vscode-menu-separatorBackground, #555);
+            margin: 2px 0;
+        }
+        #context-menu .menu-label {
+            padding: 4px 12px;
+            color: var(--vscode-descriptionForeground, #888);
+            font-size: 11px;
+        }
+        #edit-overlay {
+            position: absolute;
+            z-index: 250;
+            background: var(--vscode-editor-background, #1e1e1e);
+            border: 2px solid #007acc;
+            display: none;
+        }
+        #edit-overlay textarea {
+            width: 100%;
+            height: 100%;
+            background: var(--vscode-editor-background, #1e1e1e);
+            color: var(--vscode-editor-foreground, #d4d4d4);
+            border: none;
+            outline: none;
+            resize: none;
+            font-family: var(--vscode-editor-font-family);
+            font-size: var(--vscode-editor-font-size);
+            padding: 2px;
         }
     </style>
 </head>
 <body>
-    <div id="app" style="overflow: auto; width: 100vw; height: 100vh; position: relative;">
+    <div id="toolbar">
+        <button onclick="addElement('component', 'panel')">+ Panel</button>
+        <button onclick="addElement('component', 'header')">+ Header</button>
+        <button onclick="addElement('component', 'nav')">+ Nav</button>
+        <button onclick="addElement('component', 'table')">+ Table</button>
+        <button onclick="addElement('component', 'footer')">+ Footer</button>
+        <button onclick="addElement('layout', 'stack')">+ Stack</button>
+        <button onclick="addElement('layout', 'split')">+ Split</button>
+        <span class="spacer"></span>
+        <span class="selected-info" id="selected-info">No selection</span>
+        <button onclick="deleteSelected()" style="color: #f44">Delete</button>
+    </div>
+    <div id="app" style="overflow: auto; width: 100vw; height: calc(100vh - 30px); position: relative;">
         <div id="content-wrapper" style="position: relative; display: inline-block;">
             <pre id="ascii-output">${this._escapeHtml(content)}</pre>
             <div id="overlay-container" style="position: absolute; top: 0; left: 0; pointer-events: none;"></div>
         </div>
     </div>
+    <div id="context-menu"></div>
+    <div id="edit-overlay"><textarea></textarea></div>
     <script>
         const vscode = acquireVsCodeApi();
         let currentGrid = ${JSON.stringify(grid)};
         const output = document.getElementById('ascii-output');
         const overlayContainer = document.getElementById('overlay-container');
+        const contextMenu = document.getElementById('context-menu');
+        const editOverlay = document.getElementById('edit-overlay');
+        const editTextarea = editOverlay.querySelector('textarea');
+        const selectedInfo = document.getElementById('selected-info');
+        let selectedNodeId = null;
 
-        // Better Metrics measurement
         function getMetrics() {
             const measure = document.createElement('span');
             measure.innerText = 'A';
@@ -543,11 +806,9 @@ export class PreviewPanel {
         let isDragging = false;
         let dragStart = { x: 0, y: 0, r: 0, c: 0 };
         let draggedNodeId = null;
+        let didDrag = false;
 
-        function updateHighlight(nodeId, dx = 0, dy = 0, dw = 0, dh = 0) {
-            overlayContainer.innerHTML = '';
-            if (!nodeId) return;
-
+        function findNodeBounds(nodeId) {
             let minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
             let found = false;
             for (let r = 0; r < currentGrid.length; r++) {
@@ -561,37 +822,69 @@ export class PreviewPanel {
                     }
                 }
             }
+            return found ? { minR, maxR, minC, maxC } : null;
+        }
 
-            if (found) {
-                const offsetX = output.offsetLeft;
-                const offsetY = output.offsetTop;
+        function createOverlay(nodeId, bounds, className, dx, dy, dw, dh) {
+            const offsetX = output.offsetLeft;
+            const offsetY = output.offsetTop;
+            const overlay = document.createElement('div');
+            overlay.className = className;
+            overlay.style.top = (offsetY + (bounds.minR + dy) * metrics.height) + 'px';
+            overlay.style.left = (offsetX + (bounds.minC + dx) * metrics.width) + 'px';
+            overlay.style.width = ((bounds.maxC - bounds.minC + 1 + dw) * metrics.width) + 'px';
+            overlay.style.height = ((bounds.maxR - bounds.minR + 1 + dh) * metrics.height) + 'px';
+            return overlay;
+        }
 
-                const overlay = document.createElement('div');
-                overlay.className = 'highlight-overlay';
-                overlay.style.top = (offsetY + (minR + dy) * metrics.height) + 'px';
-                overlay.style.left = (offsetX + (minC + dx) * metrics.width) + 'px';
-                overlay.style.width = ((maxC - minC + 1 + dw) * metrics.width) + 'px';
-                overlay.style.height = ((maxR - minR + 1 + dh) * metrics.height) + 'px';
-                
-                if (isDragging || isResizing) {
-                    overlay.style.background = isResizing ? 'rgba(255, 165, 0, 0.4)' : 'rgba(0, 122, 204, 0.4)';
-                    overlay.style.border = isResizing ? '2px solid orange' : '2px solid #007acc';
-                }
+        function createResizeHandle(nodeId) {
+            const handle = document.createElement('div');
+            handle.className = 'resize-handle';
+            handle.onmousedown = (e) => {
+                isResizing = true;
+                draggedNodeId = nodeId;
+                dragStart = { x: e.clientX, y: e.clientY };
+                e.stopPropagation();
+                e.preventDefault();
+            };
+            return handle;
+        }
 
-                // Add resize handle
-                const handle = document.createElement('div');
-                handle.className = 'resize-handle';
-                // We need to capture mousedown on the handle
-                handle.onmousedown = (e) => {
-                    isResizing = true;
-                    draggedNodeId = nodeId;
-                    dragStart = { x: e.clientX, y: e.clientY };
-                    e.stopPropagation();
-                    e.preventDefault();
-                };
-                overlay.appendChild(handle);
+        function updateHighlight(nodeId, dx = 0, dy = 0, dw = 0, dh = 0) {
+            // Clear only hover overlays, keep selected overlay
+            overlayContainer.querySelectorAll('.highlight-overlay').forEach(el => el.remove());
+            if (!nodeId) return;
 
-                overlayContainer.appendChild(overlay);
+            const bounds = findNodeBounds(nodeId);
+            if (!bounds) return;
+
+            const overlay = createOverlay(nodeId, bounds, 'highlight-overlay', dx, dy, dw, dh);
+            if (isDragging || isResizing) {
+                overlay.style.background = isResizing ? 'rgba(255, 165, 0, 0.4)' : 'rgba(0, 122, 204, 0.4)';
+                overlay.style.border = isResizing ? '2px solid orange' : '2px solid #007acc';
+            }
+            overlayContainer.appendChild(overlay);
+        }
+
+        function updateSelectedHighlight(nodeId) {
+            // Remove existing selected overlay
+            overlayContainer.querySelectorAll('.selected-overlay').forEach(el => el.remove());
+            if (!nodeId) return;
+
+            const bounds = findNodeBounds(nodeId);
+            if (!bounds) return;
+
+            const overlay = createOverlay(nodeId, bounds, 'selected-overlay', 0, 0, 0, 0);
+            const handle = createResizeHandle(nodeId);
+            overlay.appendChild(handle);
+            overlayContainer.appendChild(overlay);
+        }
+
+        function selectNode(nodeId) {
+            selectedNodeId = nodeId;
+            updateSelectedHighlight(nodeId);
+            if (nodeId) {
+                vscode.postMessage({ command: 'selectNode', nodeId });
             }
         }
 
@@ -601,11 +894,16 @@ export class PreviewPanel {
                 output.textContent = message.content;
                 currentGrid = message.grid || [];
                 metrics = getMetrics();
-                updateHighlight(null);
+                updateSelectedHighlight(selectedNodeId);
+            } else if (message.command === 'parentSelected') {
+                selectedNodeId = message.nodeId;
+                updateSelectedHighlight(message.nodeId);
+                selectedInfo.textContent = 'Selected: ' + (message.kind || message.type || 'node');
             }
         });
 
         output.addEventListener('mousedown', e => {
+            if (e.button === 2) return; // Right click handled separately
             const rect = output.getBoundingClientRect();
             const c = Math.floor((e.clientX - rect.left) / metrics.width);
             const r = Math.floor((e.clientY - rect.top) / metrics.height);
@@ -653,6 +951,7 @@ export class PreviewPanel {
                 isResizing = false;
                 draggedNodeId = null;
                 updateHighlight(null);
+                updateSelectedHighlight(selectedNodeId);
             } else if (isDragging) {
                 const dx = Math.round((e.clientX - dragStart.x) / metrics.width);
                 const dy = Math.round((e.clientY - dragStart.y) / metrics.height);
@@ -669,10 +968,9 @@ export class PreviewPanel {
                 isDragging = false;
                 draggedNodeId = null;
                 updateHighlight(null);
+                updateSelectedHighlight(selectedNodeId);
             }
         });
-
-        let didDrag = false;
 
         output.addEventListener('click', e => {
             if (didDrag) {
@@ -685,9 +983,237 @@ export class PreviewPanel {
             const nodeId = currentGrid[row] && currentGrid[row][col];
             
             if (nodeId) {
-                vscode.postMessage({ command: 'selectNode', nodeId });
+                selectNode(nodeId);
+                selectedInfo.textContent = 'Selected: ' + nodeId.split('-').pop();
             }
         });
+
+        // Double-click to edit content
+        output.addEventListener('dblclick', e => {
+            const rect = output.getBoundingClientRect();
+            const col = Math.floor((e.clientX - rect.left) / metrics.width);
+            const row = Math.floor((e.clientY - rect.top) / metrics.height);
+            const nodeId = currentGrid[row] && currentGrid[row][col];
+            
+            if (nodeId) {
+                selectedNodeId = nodeId;
+                showContentEditor(nodeId, row, col);
+            }
+        });
+
+        function showContentEditor(nodeId, row, col) {
+            const offsetX = output.offsetLeft;
+            const offsetY = output.offsetTop;
+            
+            // Find bounding box of this node
+            let minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
+            for (let r = 0; r < currentGrid.length; r++) {
+                for (let c = 0; c < currentGrid[r].length; c++) {
+                    if (currentGrid[r][c] === nodeId) {
+                        minR = Math.min(minR, r);
+                        maxR = Math.max(maxR, r);
+                        minC = Math.min(minC, c);
+                        maxC = Math.max(maxC, c);
+                    }
+                }
+            }
+            
+            if (minR === Infinity) return;
+            
+            const wrapper = document.getElementById('content-wrapper');
+            const wrapperRect = wrapper.getBoundingClientRect();
+            
+            editOverlay.style.display = 'block';
+            editOverlay.style.left = (offsetX + minC * metrics.width) + 'px';
+            editOverlay.style.top = (offsetY + minR * metrics.height) + 'px';
+            editOverlay.style.width = ((maxC - minC + 1) * metrics.width) + 'px';
+            editOverlay.style.height = ((maxR - minR + 1) * metrics.height) + 'px';
+            
+            editTextarea.value = '';
+            editTextarea.focus();
+            
+            editTextarea.onkeydown = (ev) => {
+                if (ev.key === 'Enter' && !ev.shiftKey) {
+                    ev.preventDefault();
+                    const content = editTextarea.value;
+                    vscode.postMessage({ command: 'editNodeContent', nodeId, newContent: content });
+                    editOverlay.style.display = 'none';
+                } else if (ev.key === 'Escape') {
+                    editOverlay.style.display = 'none';
+                }
+            };
+            
+            editTextarea.onblur = () => {
+                editOverlay.style.display = 'none';
+            };
+        }
+
+        // Right-click context menu
+        output.addEventListener('contextmenu', e => {
+            e.preventDefault();
+            const rect = output.getBoundingClientRect();
+            const col = Math.floor((e.clientX - rect.left) / metrics.width);
+            const row = Math.floor((e.clientY - rect.top) / metrics.height);
+            const nodeId = currentGrid[row] && currentGrid[row][col];
+            
+            if (!nodeId) return;
+            
+            selectedNodeId = nodeId;
+            updateSelectedHighlight(nodeId);
+            showContextMenu(e.clientX, e.clientY, nodeId);
+        });
+
+        const elementTypes = [
+            { type: 'component', kind: 'panel', label: 'Panel' },
+            { type: 'component', kind: 'header', label: 'Header' },
+            { type: 'component', kind: 'nav', label: 'Nav' },
+            { type: 'component', kind: 'table', label: 'Table' },
+            { type: 'component', kind: 'list', label: 'List' },
+            { type: 'component', kind: 'footer', label: 'Footer' },
+            { type: 'layout', kind: 'stack', label: 'Stack Layout' },
+            { type: 'layout', kind: 'split', label: 'Split Layout' },
+        ];
+
+        function showContextMenu(x, y, nodeId) {
+            contextMenu.innerHTML = '';
+            
+            const items = [
+                { label: 'Add Sibling Before...', action: () => showAddTypeMenu(nodeId, 'before') },
+                { label: 'Add Sibling After...', action: () => showAddTypeMenu(nodeId, 'after') },
+                { label: 'Add Child...', action: () => showAddTypeMenu(nodeId, 'child') },
+                { sep: true },
+                { label: 'Select Parent', action: () => vscode.postMessage({ command: 'selectParent', nodeId }) },
+                { sep: true },
+                { label: 'Change Kind...', action: () => showKindMenu(nodeId) },
+                { label: 'Edit Content (double-click)', action: () => {
+                    let minR = Infinity, minC = Infinity;
+                    for (let r = 0; r < currentGrid.length; r++)
+                        for (let c = 0; c < currentGrid[r].length; c++)
+                            if (currentGrid[r][c] === nodeId) { minR = Math.min(minR, r); minC = Math.min(minC, c); }
+                    if (minR !== Infinity) showContentEditor(nodeId, minR, minC);
+                }},
+                { sep: true },
+                { label: 'Delete', action: () => deleteNode(nodeId) },
+            ];
+            
+            for (const item of items) {
+                if (item.sep) {
+                    const sep = document.createElement('div');
+                    sep.className = 'menu-separator';
+                    contextMenu.appendChild(sep);
+                } else {
+                    const el = document.createElement('div');
+                    el.className = 'menu-item';
+                    el.textContent = item.label;
+                    el.onclick = () => {
+                        contextMenu.style.display = 'none';
+                        item.action();
+                    };
+                    contextMenu.appendChild(el);
+                }
+            }
+            
+            contextMenu.style.display = 'block';
+            contextMenu.style.left = x + 'px';
+            contextMenu.style.top = y + 'px';
+        }
+
+        function showAddTypeMenu(nodeId, position) {
+            contextMenu.innerHTML = '';
+            
+            const label = document.createElement('div');
+            label.className = 'menu-label';
+            const posLabel = position === 'before' ? 'before' : position === 'after' ? 'after' : 'as child';
+            label.textContent = 'Add ' + posLabel + ':';
+            contextMenu.appendChild(label);
+            
+            for (const el of elementTypes) {
+                const item = document.createElement('div');
+                item.className = 'menu-item';
+                item.textContent = el.label;
+                item.onclick = () => {
+                    contextMenu.style.display = 'none';
+                    addElementNear(el.type, el.kind, nodeId, position);
+                };
+                contextMenu.appendChild(item);
+            }
+            
+            contextMenu.style.display = 'block';
+        }
+
+        function showKindMenu(nodeId) {
+            const kinds = ['panel', 'header', 'nav', 'table', 'list', 'footer', 'stack', 'split'];
+            contextMenu.innerHTML = '';
+            
+            const label = document.createElement('div');
+            label.className = 'menu-label';
+            label.textContent = 'Change kind to:';
+            contextMenu.appendChild(label);
+            
+            for (const kind of kinds) {
+                const el = document.createElement('div');
+                el.className = 'menu-item';
+                el.textContent = kind;
+                el.onclick = () => {
+                    contextMenu.style.display = 'none';
+                    vscode.postMessage({ command: 'editNodeProperty', nodeId, property: 'kind', value: kind });
+                };
+                contextMenu.appendChild(el);
+            }
+            
+            contextMenu.style.display = 'block';
+        }
+
+        document.addEventListener('click', e => {
+            if (e.target !== contextMenu && !contextMenu.contains(e.target)) {
+                contextMenu.style.display = 'none';
+            }
+        });
+
+        // Delete key
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Delete' && selectedNodeId && editOverlay.style.display === 'none') {
+                e.preventDefault();
+                deleteNode(selectedNodeId);
+            }
+        });
+
+        function deleteNode(nodeId) {
+            vscode.postMessage({ command: 'deleteNode', nodeId });
+            selectedNodeId = null;
+            selectedInfo.textContent = 'No selection';
+            updateHighlight(null);
+            updateSelectedHighlight(null);
+        }
+
+        function deleteSelected() {
+            if (selectedNodeId) {
+                deleteNode(selectedNodeId);
+            }
+        }
+
+        function addElement(nodeType, kind) {
+            if (selectedNodeId) {
+                addElementNear(nodeType, kind, selectedNodeId, 'after');
+            } else {
+                // Add at root level - use first node as reference
+                if (currentGrid.length > 0) {
+                    // Find first node ID
+                    for (let r = 0; r < currentGrid.length; r++) {
+                        for (let c = 0; c < currentGrid[r].length; c++) {
+                            if (currentGrid[r][c]) {
+                                addElementNear(nodeType, kind, currentGrid[r][c], 'after');
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        function addElementNear(nodeType, kind, targetNodeId, position) {
+            vscode.postMessage({ command: 'addNode', nodeType, kind, targetNodeId, position });
+        }
     </script>
 </body>
 </html>`;

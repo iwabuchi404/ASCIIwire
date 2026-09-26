@@ -43,8 +43,22 @@ export function parseDSL(source: string): DSLNode[] {
         }
       }
 
+      // Pop stack until we find the parent
+      while (stack.length > 0 && stack[stack.length - 1].indent >= indentLevel) {
+        stack.pop();
+      }
+
+      // Deterministic ID based on tree path (depth + sibling index)
+      const siblingIndex = stack.length === 0
+        ? root.length
+        : stack[stack.length - 1].node.children.length;
+      const parentId = stack.length === 0
+        ? 'root'
+        : stack[stack.length - 1].node.id;
+      const nodeId = `${parentId}-${siblingIndex}`;
+
       const node: DSLNode = {
-        id: `node-${i}-${Math.random().toString(36).substr(2, 5)}`,
+        id: nodeId,
         level: indentLevel,
         type,
         kind,
@@ -53,11 +67,6 @@ export function parseDSL(source: string): DSLNode[] {
         children: [],
         sourceRange: { startLine: i, endLine: i }
       };
-
-      // Pop stack until we find the parent
-      while (stack.length > 0 && stack[stack.length - 1].indent >= indentLevel) {
-        stack.pop();
-      }
 
       if (stack.length === 0) {
         root.push(node);
