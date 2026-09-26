@@ -15,40 +15,38 @@ ASCIIwireは、AIと人間がワイヤーフレームを介してUIを共同設�
 - `packages/vscode`: VSCode拡張（開発中）。
 - `packages/mcp`: MCPサーバー（開発中）。
 
-## DSLフォーマット（Markdownベース）
+## DSLフォーマット（v3）
 
-Markdownの見出しを利用して構造とレイアウトを定義します。
+`@` プレフィックス + スペース2個のインデントで構造とレイアウトを定義します。
 
-```markdown
-# layout: stack
-
-### component: header
-[ Logo ] News Portal [ 設定 ] [ ログアウト ]
-
-## layout: split
-### left:
-#### component: table
-| date | title | status |
-|------|-------|--------|
-
-### right:
-#### component: panel
-- title
-- summary
-[ Open ]
 ```
+@vstack
+  @header
+    [ Logo ] News Portal [ 設定 ] [ ログアウト ]
+  @hstack height=12
+    @vstack width=40%
+      @table height=fill
+        | date | title | status |
+        |------|-------|--------|
+        | 6/30 | Hello | done |
+    @panel width=fill
+      - title
+      - summary
+      [ Open ]
+```
+
+要素の構文は `@<kind> [key=value ...]`。レイアウトは `vstack` / `hstack`、部品は `header`, `table`, `panel`, `nav`, `list`, `footer` など。サイズ指定は `N` / `N%` / `fill` / `auto` が使えます。
 
 ### レンダリング結果
 
 ```text
 ======================================================================
 |            [ Logo ] News Portal [ 設定 ] [ ログアウト ]            |
-======================================================================
-+------+-------+--------+         |+---------------------------------+
-| date | title | status |         || - title                         |
-+------+-------+--------+         || - summary                       |
-+------+-------+--------+         || [ Open ]                        |
-                                  |+---------------------------------+
++------+-------+--------+==+-----------------------------------------+
+| date | title | status |  | - title                                 |
++------+-------+--------+  | - summary                               |
+| 6/30 | Hello | done   |  | [ Open ]                                |
++------+-------+--------+  +-----------------------------------------+
 ```
 
 ## 開発の始め方

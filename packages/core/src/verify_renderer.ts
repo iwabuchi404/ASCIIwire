@@ -2,25 +2,21 @@ import { parseDSL } from './parser.js';
 import { renderASCII } from './renderer.js';
 
 const sampleDSL = `
-# layout: stack
-
-### component: header
-[ Logo ] News Portal [ 設定 ] [ ログアウト ]
-
-## layout: split
-### left:
-#### component: table
-| date | title | status |
-|------|-------|--------|
-
-### right:
-#### component: panel
-- title
-- meta
-- summary
-[ Open ] [ Mark as read ]
+@vstack
+  @header
+    [ Logo ] News Portal [ Settings ] [ Logout ]
+  @hstack
+    @panel width=30%
+      - title
+      - summary
+    @table width=fill
+      | date | title | status |
+      |------|-------|--------|
 `;
 
-const ast = parseDSL(sampleDSL);
-const ascii = renderASCII(ast, { width: 60 });
-console.log(ascii);
+const { nodes, diagnostics } = parseDSL(sampleDSL);
+const result = renderASCII(nodes, { width: 60 });
+console.log(result.ascii);
+if (diagnostics.length || result.diagnostics.length) {
+  console.error('Diagnostics:', [...diagnostics, ...result.diagnostics]);
+}

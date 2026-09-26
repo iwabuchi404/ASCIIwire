@@ -22,6 +22,7 @@ program
 program
   .argument('[file]', 'DSL file to render')
   .option('-w, --width <number>', 'Output width', '80')
+  .option('--height <number>', 'Default height for root layouts', '24')
   .action((file, options) => {
     if (!file) {
       program.help();
@@ -35,10 +36,19 @@ program
       }
 
       const content = fs.readFileSync(fullPath, 'utf-8');
-      const ast = parseDSL(content);
-      const result = renderASCII(ast, { width: parseInt(options.width, 10) });
+      const { nodes, diagnostics } = parseDSL(content);
+      const result = renderASCII(nodes, {
+        width: parseInt(options.width, 10),
+        height: parseInt(options.height, 10),
+      });
 
       console.log(result.ascii);
+
+      const allDiags = [...diagnostics, ...result.diagnostics];
+      for (const d of allDiags) {
+        const loc = d.line !== undefined ? `line ${d.line + 1}: ` : '';
+        console.error(`${d.severity}: ${loc}${d.message}`);
+      }
     } catch (error) {
       console.error('Error rendering DSL:', error);
       process.exit(1);

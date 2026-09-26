@@ -2,16 +2,20 @@ import * as vscode from 'vscode';
 import { PreviewPanel } from './previewPanel';
 
 export const outputChannel = vscode.window.createOutputChannel('ASCIIwire');
+export const diagnosticCollection = vscode.languages.createDiagnosticCollection('asciiwire');
+
+function isWireDocument(doc: vscode.TextDocument): boolean {
+    return doc.languageId === 'wire' || doc.fileName.endsWith('.wire');
+}
 
 export function activate(context: vscode.ExtensionContext) {
     outputChannel.appendLine('ASCIIwire extension is now active');
 
-    // Create status bar item FIRST
     const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
     statusBarItem.text = '$(eye) ASCIIwire';
     statusBarItem.command = 'asciiwire.openPreview';
     statusBarItem.tooltip = 'Click to open ASCIIwire Preview';
-    context.subscriptions.push(statusBarItem);
+    context.subscriptions.push(statusBarItem, diagnosticCollection);
 
     const disposable = vscode.commands.registerCommand('asciiwire.openPreview', () => {
         try {
@@ -56,7 +60,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     const updateStatusBar = (editor: vscode.TextEditor | undefined) => {
         try {
-            if (editor && (editor.document.languageId === 'wire' || editor.document.fileName.endsWith('.wire'))) {
+            if (editor && isWireDocument(editor.document)) {
                 statusBarItem.show();
             } else {
                 statusBarItem.hide();
@@ -66,7 +70,22 @@ export function activate(context: vscode.ExtensionContext) {
         }
     };
 
-    vscode.window.onDidChangeActiveTextEditor(updateStatusBar, null, context.subscriptions);
+    // Auto-open the preview when a .wire file becomes active (unless the user closed it)
+    const maybeAutoOpen = (editor: vscode.TextEditor | undefined) => {
+        if (editor && isWireDocument(editor.document) && !PreviewPanel.currentPanel && !PreviewPanel.userClosed) {
+            try {
+                PreviewPanel.createOrShow(context.extensionUri);
+            } catch (e) {
+                outputChannel.appendLine(`Auto-open failed: ${e}`);
+            }
+        }
+    };
+
+    vscode.window.onDidChangeActiveTextEditor(editor => {
+        updateStatusBar(editor);
+        maybeAutoOpen(editor);
+    }, null, context.subscriptions);
+
     vscode.workspace.onDidChangeTextDocument(e => {
         if (e.document.fileName.endsWith('.wire')) {
             try {
@@ -77,10 +96,13 @@ export function activate(context: vscode.ExtensionContext) {
         }
     }, null, context.subscriptions);
 
-    // Initial check
+    // Clear diagnostics when a .wire document is closed
+    vscode.workspace.onDidCloseTextDocument(doc => {
+        diagnosticCollection.delete(doc.uri);
+    }, null, context.subscriptions);
+
     updateStatusBar(vscode.window.activeTextEditor);
-    
-    vscode.window.showInformationMessage('ASCIIwire Extension Activated');
+    maybeAutoOpen(vscode.window.activeTextEditor);
 }
 
 export function deactivate() {}

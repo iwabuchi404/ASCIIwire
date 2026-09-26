@@ -1,44 +1,41 @@
-# ASCIIwire DSL v2 Sample - Dashboard UI
-@layout stack
-  @component header
+# ASCIIwire DSL v3 Sample - Dashboard UI
+@vstack
+  @header
     Dashboard
 
-  @layout split ratio=30/70
-    @branch left
-      @component nav
+  @hstack height=fill
+    @vstack width=30%
+      @nav
         [ Home ] [ Users ] [ Settings ] [ Reports ]
 
-      @component panel height=8
+      @panel height=fill
         Menu Footer
         v1.0.0
 
-    @branch right
-      @layout stack
-        @component panel height=5
-          Welcome back, Admin
-          Last login: 2026-06-30
+    @vstack width=fill
+      @panel height=5
+        Welcome back, Admin
+        Last login: 2026-06-30
 
-        @layout split ratio=50/50
-          @branch left
-            @component panel height=6
-              Statistics
-              Users: 1,234
-              Active: 567
-              Revenue: $12k
+      @hstack height=8
+        @panel width=50%
+          Statistics
+          Users: 1,234
+          Active: 567
+          Revenue: $12k
 
-          @branch right
-            @component panel height=6
-              Recent Activity
-              - User login
-              - File upload
-              - Comment posted
+        @panel width=50%
+          Recent Activity
+          - User login
+          - File upload
+          - Comment posted
 
-        @component table
-          | ID | User    | Role   | Status |
-          |----|---------|--------|--------|
-          | 1  | Alice   | Admin  | Active |
-          | 2  | Bob     | Editor | Idle   |
-          | 3  | Charlie | Viewer | Away   |
+      @table
+        | ID | User    | Role   | Status |
+        |----|---------|--------|--------|
+        | 1  | Alice   | Admin  | Active |
+        | 2  | Bob     | Editor | Idle   |
+        | 3  | Charlie | Viewer | Away   |
 
-  @component footer
+  @footer
     v1.0.0 | (c) 2024 ASCIIwire

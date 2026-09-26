@@ -21,38 +21,42 @@ VSCode拡張（GUIエディタ）
   ↓ DSLに書き戻し
 AIエージェントに渡す
 
-## DSLフォーマット（v2: 独自DSL）
+## DSLフォーマット（v3: 独自DSL）
 
 `@` プレフィックス + インデント階層による独自DSL。Markdown見出しのセマンティクス衝突を回避し、ツールなしでも構造が分かる。
 
 ```
 # コメント行
-@layout stack
-  @component header
+@vstack
+  @header
     [ Logo ] News Portal [ 設定 ] [ ログアウト ]
-  @layout split ratio=30/70
-    @branch left
-      @component table
+  @hstack height=fill
+    @vstack width=30%
+      @table
         | date | title | status |
         |------|-------|--------|
-      @component nav
+      @nav
         [ < ] 1 2 [3] 4 5 [ > ]
-    @branch right
-      @component panel height=8
-        - title
-        - meta
-        - summary
-        [ Open ] [ Mark as read ]
+    @panel width=fill id=detail
+      - title
+      - meta
+      - summary
+      [ Open ] [ Mark as read ]
 ```
 
 ### 構文ルール
-- `@layout <kind> [key=value...]` — レイアウト（stack, split）
-- `@component <kind> [key=value...]` — コンポーネント（header, table, panel, nav, list, footer）
-- `@branch <kind>` — ブランチ（left, right, top, bottom）
+- `@<kind> [key=value...]` — 要素（種別前置きはv3で廃止）
+  - レイアウト: `vstack`（縦積み）, `hstack`（横積み）
+  - 部品: `header`, `table`, `panel`, `nav`, `list`, `footer`
+  - 保留kind: `layer`（モーダル等の浮遊要素）, `grid`
+  - 未知kind: 点線のデフォルト部品枠で描画し warning を出す
 - `# ...` — 行コメント（インデント階層に影響しない）
 - インデントされた非`@`行 — content（`@@`で`@`をエスケープ）
 - インデント: スペース2個
-- パラメータ: `key=value` のみ（`ratio=50/50`, `height=10`, `width=80`）
+- パラメータ: `key=value`（`width="a b"` のようなクォート値も可）
+  - `width`/`height` = `N`（絶対）| `N%`（親に対する割合）| `fill`（残りを均等分配）| `auto`（内容依存）
+  - `id=name` — 安定ノードID（省略時はツリー位置ベース ID）
+- 複数ルート: 各ルートは別画面として連結レンダリング（既定高24行）
 - 拡張子: `.wire`
 
 ## 出力（アスキーアート）
